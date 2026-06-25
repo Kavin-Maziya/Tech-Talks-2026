@@ -103,9 +103,24 @@ export async function createRegistration(data: {
 }): Promise<Registration> {
   await delay(900)
 
+  const talk = talks.find((t) => t.id === data.talkId)
+  if (!talk) {
+    throw new Error('Talk not found.')
+  }
+
+  // Mirrors the capacity check in RegisterForm — enforced here so the
+  // in-memory store stays consistent even if the form check is bypassed
+  if (talk.registrationCount >= talk.capacity) {
+    throw new Error('This talk is fully booked.')
+  }
+
   if (registrations.find((r) => r.talkId === data.talkId && r.attendeeEmail === data.attendeeEmail)) {
     throw new Error('You are already registered for this talk.')
   }
+
+  // Mutates the shared talks array so fetchTalks returns the updated count
+  // after queryClient.invalidateQueries fires in RegisterForm's onSuccess
+  talk.registrationCount += 1
 
   const entry: Registration = { id: nextId++, ...data, registeredAt: new Date().toISOString() }
   registrations.push(entry)
